@@ -1,17 +1,26 @@
 import "./index.css";
 import { Composition } from "remotion";
-import { MyComposition } from "./Composition";
+import { PaganIntro } from "./PaganIntro";
+import { SeventhShadowComp } from "./7thShadow/Composition";
 
 export const RemotionRoot: React.FC = () => {
   return (
     <>
       <Composition
-        id="MyComp"
-        component={MyComposition}
-        durationInFrames={60}
+        id="PaganIntro"
+        component={PaganIntro}
+        durationInFrames={150} // 5 seconds at 30fps
         fps={30}
-        width={1280}
-        height={720}
+        width={1920}
+        height={1080}
+      />
+      <Composition
+        id="SeventhShadow"
+        component={SeventhShadowComp}
+        durationInFrames={8400} // ~4:40 at 30fps
+        fps={30}
+        width={1920}
+        height={1080}
       />
     </>
   );

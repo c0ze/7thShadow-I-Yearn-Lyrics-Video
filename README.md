@@ -1,54 +1,54 @@
-# Remotion video
+# The Seventh Shadow - "I Yearn" Lyrics Video
 
-<p align="center">
-  <a href="https://github.com/remotion-dev/logo">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://github.com/remotion-dev/logo/raw/main/animated-logo-banner-dark.apng">
-      <img alt="Animated Remotion Logo" src="https://github.com/remotion-dev/logo/raw/main/animated-logo-banner-light.gif">
-    </picture>
-  </a>
-</p>
+This project is a [Remotion](https://www.remotion.dev/) video composition for the song "I Yearn" by The Seventh Shadow. It programmatically generates a lyrics video with custom animations, effects, and synchronized text.
 
-Welcome to your Remotion project!
+## Project Structure
 
-## Commands
+*   `src/7thShadow/Composition.tsx`: Main video composition logic.
+*   `src/7thShadow/lyricsData.ts`: Lyrics data (parsed from LRC).
+*   `public/7thShadow/`: Static assets (cover art).
+*   `public/fonts/`: Custom fonts (Amstrong, Cinzel Decorative).
 
-**Install Dependencies**
+## Prerequisites
 
-```console
-npm i
-```
+*   Node.js (v16+)
+*   npm
 
-**Start Preview**
+## Setup
 
-```console
+1.  Clone the repository:
+    ```bash
+    git clone git@github.com:c0ze/7thShadow-I-Yearn-Lyrics-Video.git
+    cd 7thShadow-I-Yearn-Lyrics-Video
+    ```
+
+2.  Install dependencies:
+    ```bash
+    npm install
+    ```
+
+## Usage
+
+### Preview
+
+Start the Remotion Studio to preview the video in your browser:
+
+```bash
 npm run dev
 ```
 
-**Render video**
+### Render
 
-```console
-npx remotion render
+Render the final video to an MP4 file:
+
+```bash
+npx remotion render SeventhShadow out.mp4
 ```
 
-**Upgrade Remotion**
+## Credits
 
-```console
-npx remotion upgrade
-```
-
-## Docs
-
-Get started with Remotion by reading the [fundamentals page](https://www.remotion.dev/docs/the-fundamentals).
-
-## Help
-
-We provide help on our [Discord server](https://discord.gg/6VzzNDwUwV).
-
-## Issues
-
-Found an issue with Remotion? [File an issue here](https://github.com/remotion-dev/remotion/issues/new).
-
-## License
-
-Note that for some entities a company license is needed. [Read the terms here](https://github.com/remotion-dev/remotion/blob/main/LICENSE.md).
+*   **Music:** The Seventh Shadow
+*   **Fonts:**
+    *   Amstrong (Band Logo)
+    *   Cinzel Decorative (Lyrics)
+*   **Video Framework:** Remotion
