@@ -44,10 +44,10 @@ const parseLrc = (lrc: string, fps: number): LyricLine[] => {
 		if (match) {
 			const minutes = parseInt(match[1], 10);
 			const seconds = parseInt(match[2], 10);
-			const centiseconds = parseInt(match[3], 10);
+			const frac = match[3];
 			const text = match[4].trim();
 
-			const totalSeconds = minutes * 60 + seconds + centiseconds / 100;
+			const totalSeconds = minutes * 60 + seconds + parseInt(frac, 10) / Math.pow(10, frac.length);
 			const startFrame = Math.round(totalSeconds * fps);
 
 			parsed.push({ startFrame, text });
@@ -74,7 +74,7 @@ const parseLrc = (lrc: string, fps: number): LyricLine[] => {
 
 const Scanlines = ({ intensity }: { intensity: number }) => {
 	const frame = useCurrentFrame();
-	
+
 	const offsetY = (frame * 2) % 100; // Moving scanline
     const opacity = random(frame) * 0.1 * intensity + 0.05 * intensity;
 
@@ -92,64 +92,109 @@ const Scanlines = ({ intensity }: { intensity: number }) => {
 	);
 };
 
-const LyricText = ({ text, isActive, frameOffset, duration, shouldDecompose }: { text: string, isActive: boolean, frameOffset: number, duration: number, shouldDecompose: boolean }) => {
-    
+const PARTICLE_COUNT = 40;
+
+const DustParticles = () => {
+	const frame = useCurrentFrame();
+
+	const particles = useMemo(() => {
+		return Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
+			x: random(`dust-x-${i}`) * 100,
+			y: random(`dust-y-${i}`) * 100,
+			size: random(`dust-s-${i}`) * 3 + 1,
+			speed: random(`dust-sp-${i}`) * 0.3 + 0.05,
+			drift: random(`dust-d-${i}`) * 0.2 - 0.1,
+			opacity: random(`dust-o-${i}`) * 0.3 + 0.1,
+		}));
+	}, []);
+
+	return (
+		<AbsoluteFill style={{ pointerEvents: 'none', zIndex: 8 }}>
+			{particles.map((p, i) => {
+				const y = (p.y - frame * p.speed) % 120;
+				const x = p.x + Math.sin(frame * 0.02 + i) * 3 + frame * p.drift;
+				// Flicker: vary opacity per frame deterministically
+				const flicker = random(frame * 7 + i) * 0.4 + 0.6;
+
+				return (
+					<div
+						key={i}
+						style={{
+							position: 'absolute',
+							left: `${((x % 100) + 100) % 100}%`,
+							top: `${((y % 120) + 120) % 120}%`,
+							width: p.size,
+							height: p.size,
+							borderRadius: '50%',
+							backgroundColor: 'rgba(255, 255, 255, 1)',
+							opacity: p.opacity * flicker,
+						}}
+					/>
+				);
+			})}
+		</AbsoluteFill>
+	);
+};
+
+const LyricText = ({ text, frameOffset, duration, shouldDecompose, isChorus }: { text: string, frameOffset: number, duration: number, shouldDecompose: boolean, isChorus: boolean }) => {
+
     // Hide after calculated duration
     if (frameOffset > duration) {
         return null;
     }
-    
-    let transform = 'translate(0, 0)';
+
     let opacity = 1;
     let filter = 'none';
     let letterSpacing = '0em';
-    let color = '#ffffff'; // Explicit white
+    let color = '#ffffff';
 
-    if (isActive) {
-        // Subtle Fade In (0 -> 1 over 20 frames)
-        opacity = interpolate(frameOffset, [0, 20], [0, 1]);
-        
-        // Exit Animation
-        if (frameOffset > duration - 20) {
-            // Standard Fade Out
-             opacity = interpolate(frameOffset, [duration - 20, duration], [1, 0]);
-             
-             // Decompose Effect (Blur + Spread)
-             if (shouldDecompose) {
-                 const blurAmount = interpolate(frameOffset, [duration - 20, duration], [0, 8]);
-                 const spacing = interpolate(frameOffset, [duration - 20, duration], [0, 0.5]); // em
-                 
-                 filter = `blur(${blurAmount}px)`;
-                 letterSpacing = `${spacing}em`;
-             }
-        }
+    // Fade in with upward drift
+    opacity = interpolate(frameOffset, [0, 25], [0, 1], { extrapolateRight: 'clamp' });
+    const translateY = interpolate(frameOffset, [0, 25], [12, 0], { extrapolateRight: 'clamp' });
 
-        // Special styling for keywords (always active if present)
-        if (text.toLowerCase().includes('rust') || text.toLowerCase().includes('decay')) {
-            // Add a slight sepia tint but respect the blur if it's happening
-            const baseFilter = shouldDecompose && frameOffset > duration - 20 ? filter : `sepia(0.6)`;
-            filter = baseFilter;
-            color = '#DAA520'; // Amber/Rust color
+    // Exit Animation
+    if (frameOffset > duration - 20) {
+        opacity = interpolate(frameOffset, [duration - 20, duration], [1, 0]);
+
+        // Decompose Effect (Blur + Spread)
+        if (shouldDecompose) {
+            const blurAmount = interpolate(frameOffset, [duration - 20, duration], [0, 8]);
+            const spacing = interpolate(frameOffset, [duration - 20, duration], [0, 0.5]);
+
+            filter = `blur(${blurAmount}px)`;
+            letterSpacing = `${spacing}em`;
         }
-    } else {
-        return null; 
     }
+
+    // Special styling for keywords
+    const lowerText = text.toLowerCase();
+    if (lowerText.includes('rust') || lowerText.includes('decay') || lowerText.includes('fade') || lowerText.includes('dust')) {
+        color = '#DAA520';
+        filter = filter === 'none' ? 'sepia(0.6)' : `sepia(0.6) ${filter}`;
+    }
+
+    // Chromatic aberration: render offset red/blue shadows during chorus
+    const aberration = isChorus ? interpolate(frameOffset, [0, 10], [0, 1.5], { extrapolateRight: 'clamp' }) : 0;
+
+    const glowColor = isChorus ? 'rgba(0, 255, 0, 0.5)' : 'rgba(0, 255, 0, 0.3)';
+    const textShadow = aberration > 0
+        ? `0 0 10px ${glowColor}, ${-aberration}px 0 rgba(255, 0, 0, 0.4), ${aberration}px 0 rgba(0, 100, 255, 0.4)`
+        : `0 0 10px ${glowColor}`;
 
     return (
         <h1
             style={{
                 fontFamily: lyricsFont,
                 color,
-                fontSize: '3.5rem', 
+                fontSize: '3.5rem',
                 textAlign: 'center',
-                transform,
                 opacity,
                 filter,
                 letterSpacing,
-                textShadow: '0 0 10px rgba(0, 255, 0, 0.3)', // Subtle digital glow
+                textShadow,
                 whiteSpace: 'pre-wrap',
                 maxWidth: '80%',
-                transition: 'letter-spacing 0.1s ease-out', // smooth out frame jumps if any
+                transform: `translateY(${translateY}px)`,
             }}
         >
             {text}
@@ -199,11 +244,6 @@ export const SeventhShadowComp = () => {
     }, [currentLine]);
 
 
-    // Debug log to trace lyric updates
-    if (frame % 30 === 0) { // Log once per second roughly
-        console.log(`Frame: ${frame}, Current Line: ${currentLine ? currentLine.text : 'None'}, Duration: ${duration}`);
-    }
-    
     // Determine if we are in a chorus (simple check for repeated phrase or high intensity sections)
     // "I yearn to be free" marks the chorus start usually
     const isChorus = currentLine?.text.toLowerCase().includes('yearn') || false;
@@ -214,6 +254,18 @@ export const SeventhShadowComp = () => {
     // Ken Burns effect on background
     const scale = interpolate(frame, [0, 8400], [1.1, 1.3], { extrapolateRight: 'clamp' });
     const translateBackground = interpolate(frame, [0, 8400], [0, -50], { extrapolateRight: 'clamp' });
+
+    // Color temperature shift: cold blue → neutral → warm over the song
+    const hueShift = interpolate(frame, [0, 4200, 8400], [-10, 0, 15], { extrapolateRight: 'clamp' });
+    const warmth = interpolate(frame, [0, 4200, 8400], [1.1, 1.0, 0.9], { extrapolateRight: 'clamp' }); // saturation multiplier
+
+    // Breathing vignette: tighter during chorus
+    const vignetteBase = isChorus ? 30 : 40;
+    const vignetteBreathe = Math.sin(frame * 0.03) * 3;
+    const vignetteSize = vignetteBase + vignetteBreathe;
+
+    // Banner fade-in over first 2 seconds
+    const bannerOpacity = interpolate(frame, [0, 60], [0, 0.9], { extrapolateRight: 'clamp' });
 
 	return (
 		<AbsoluteFill style={{ backgroundColor: '#000' }}>
@@ -226,18 +278,21 @@ export const SeventhShadowComp = () => {
                         height: '100%',
                         objectFit: 'cover',
                         transform: `scale(${scale}) translateY(${translateBackground}px)`,
-                        filter: 'desaturate(80%) brightness(0.6)', // Heavy desaturation
+                        filter: `saturate(${0.2 * warmth}) brightness(0.6) hue-rotate(${hueShift}deg)`,
                     }}
                 />
             </AbsoluteFill>
 
+            {/* Dust Particles */}
+            <DustParticles />
+
             {/* Effects Layer */}
             <Scanlines intensity={scanlineIntensity} />
-            
-            {/* Digital Vignette */}
+
+            {/* Breathing Vignette */}
              <AbsoluteFill
                 style={{
-                    background: 'radial-gradient(circle, transparent 40%, #000 100%)',
+                    background: `radial-gradient(circle, transparent ${vignetteSize}%, #000 100%)`,
                     zIndex: 5,
                 }}
             />
@@ -258,7 +313,7 @@ export const SeventhShadowComp = () => {
                         color: '#ffffff',
                         fontSize: '5rem',
                         textShadow: '0 0 20px rgba(255, 255, 255, 0.5)',
-                        opacity: 0.9,
+                        opacity: bannerOpacity,
                         letterSpacing: '0.1em',
                         margin: 0,
                     }}
@@ -270,20 +325,20 @@ export const SeventhShadowComp = () => {
             {/* Lyrics Layer */}
 			<AbsoluteFill
 				style={{
-					justifyContent: 'flex-end', // Subtitle position
+					justifyContent: 'flex-end',
 					alignItems: 'center',
-                    paddingBottom: '80px', // Space from bottom
+                    paddingBottom: '80px',
                     zIndex: 20,
 				}}
 			>
                 {currentLine && (
-                    <LyricText 
-                        key={currentLine.startFrame} // Re-mount on new line to trigger effects
-                        text={currentLine.text} 
-                        isActive={true} 
+                    <LyricText
+                        key={currentLine.startFrame}
+                        text={currentLine.text}
                         frameOffset={frame - currentLine.startFrame}
                         duration={duration}
                         shouldDecompose={shouldDecompose}
+                        isChorus={isChorus}
                     />
                 )}
 			</AbsoluteFill>
