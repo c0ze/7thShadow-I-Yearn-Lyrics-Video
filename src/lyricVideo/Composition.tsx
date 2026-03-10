@@ -1,7 +1,12 @@
 import { loadFont } from "@remotion/fonts";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import paganGazelleFontUrl from "../../public/Pagan/fonts/gazelle-regular.ttf";
+import paganWhiteFontUrl from "../../public/Pagan/fonts/white-ttnorm-regular.woff";
 import {
   AbsoluteFill,
+  cancelRender,
+  continueRender,
+  delayRender,
   Easing,
   Img,
   interpolate,
@@ -30,6 +35,10 @@ loadFont({
 
 const bannerFont = "Amstrong";
 const lyricsFont = "CinzelDecorative";
+const PROJECT_FONT_URLS: Record<string, string> = {
+  GazelleRegular: paganGazelleFontUrl,
+  WhiteTTNormRegular: paganWhiteFontUrl,
+};
 const CURRENT_LINE_ENTRY_FRAMES = 10;
 const PREVIOUS_LINE_FADE_FRAMES = 22;
 const LYRIC_STAGE_HEIGHT = 320;
@@ -43,6 +52,7 @@ const PARTICLE_COUNT = 40;
 const DEFAULT_THEME: Required<LyricVideoTheme> = {
   accentKeywords: [],
   accentLyricColor: "#ffffff",
+  bannerFontFamily: bannerFont,
   backgroundBrightness: 0.82,
   backgroundContrast: 0.95,
   backgroundHueShift: [0, 0, 0],
@@ -52,13 +62,19 @@ const DEFAULT_THEME: Required<LyricVideoTheme> = {
   baseLyricColor: "#ffffff",
   chorusGlowColor: "rgba(255, 255, 255, 0.38)",
   chorusKeywords: [],
+  lyricsFontFamily: lyricsFont,
+  lyricsFontSize: "4rem",
   neutralGlowColor: "rgba(255, 255, 255, 0.22)",
   scanlineBaseIntensity: 1,
   scanlineChorusIntensity: 1.8,
   vignetteAlpha: 0.82,
   vignetteBaseSize: 50,
   vignetteChorusSize: 42,
+  vignetteColor: [0, 0, 0],
   warmthRange: [1, 1, 1],
+  particleColor: "rgba(255, 255, 255, 1)",
+  mistEnabled: false,
+  mistColor: "rgba(255, 255, 255, 0.07)",
 };
 
 const getLineExitEndY = (lineDuration: number) => {
@@ -84,6 +100,7 @@ const resolveTheme = (theme?: LyricVideoTheme): Required<LyricVideoTheme> => ({
   backgroundTranslateYRange:
     theme?.backgroundTranslateYRange ?? DEFAULT_THEME.backgroundTranslateYRange,
   chorusKeywords: theme?.chorusKeywords ?? DEFAULT_THEME.chorusKeywords,
+  vignetteColor: theme?.vignetteColor ?? DEFAULT_THEME.vignetteColor,
   warmthRange: theme?.warmthRange ?? DEFAULT_THEME.warmthRange,
 });
 
@@ -116,7 +133,7 @@ const Scanlines = ({
   );
 };
 
-const DustParticles = () => {
+const DustParticles = ({ particleColor }: { particleColor: string }) => {
   const frame = useCurrentFrame();
   const particles = useMemo(() => {
     return Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
@@ -147,8 +164,59 @@ const DustParticles = () => {
               width: particle.size,
               height: particle.size,
               borderRadius: "50%",
-              backgroundColor: "rgba(255, 255, 255, 1)",
+              backgroundColor: particleColor,
               opacity: particle.opacity * flicker,
+            }}
+          />
+        );
+      })}
+    </AbsoluteFill>
+  );
+};
+
+const MIST_BLOB_COUNT = 12;
+
+const MistLayer = ({ mistColor }: { mistColor: string }) => {
+  const frame = useCurrentFrame();
+  const blobs = useMemo(() => {
+    return Array.from({ length: MIST_BLOB_COUNT }, (_, i) => ({
+      cx: random(`mist-cx-${i}`) * 100,
+      cy: random(`mist-cy-${i}`) * 100,
+      radius: random(`mist-r-${i}`) * 520 + 360,
+      orbitX: random(`mist-ox-${i}`) * 160 + 90,
+      orbitY: random(`mist-oy-${i}`) * 120 + 60,
+      speed: random(`mist-sp-${i}`) * 0.004 + 0.002,
+      phase: random(`mist-ph-${i}`) * Math.PI * 2,
+    }));
+  }, []);
+
+  return (
+    <AbsoluteFill
+      style={{
+        mixBlendMode: "screen",
+        opacity: 0.9,
+        pointerEvents: "none",
+        zIndex: 6,
+      }}
+    >
+      {blobs.map((blob, index) => {
+        const x = blob.cx + Math.sin(frame * blob.speed + blob.phase) * blob.orbitX;
+        const y = blob.cy + Math.cos(frame * blob.speed * 0.7 + blob.phase) * blob.orbitY;
+
+        return (
+          <div
+            key={index}
+            style={{
+              position: "absolute",
+              left: `${x}%`,
+              top: `${y}%`,
+              width: blob.radius * 2,
+              height: blob.radius * 2,
+              borderRadius: "50%",
+              background: `radial-gradient(circle, ${mistColor} 0%, rgba(255, 255, 255, 0) 74%)`,
+              transform: "translate(-50%, -50%)",
+              filter: `blur(${56 + index * 8}px)`,
+              opacity: 0.96,
             }}
           />
         );
@@ -191,14 +259,15 @@ const LyricText = ({
   const commonStyle = {
     bottom: 0,
     color,
-    fontFamily: lyricsFont,
-    fontSize: "3.25rem",
+    fontFamily: theme.lyricsFontFamily,
+    fontSize: theme.lyricsFontSize,
     fontWeight: 400,
     left: "50%",
     lineHeight: 1.22,
     margin: 0,
     position: "absolute" as const,
     textAlign: "center" as const,
+    WebkitTextStroke: "1px rgba(0, 0, 0, 0.45)",
     whiteSpace: "pre-wrap" as const,
     width: LYRIC_BLOCK_WIDTH,
   };
@@ -217,7 +286,7 @@ const LyricText = ({
         style={{
           ...commonStyle,
           opacity,
-          textShadow: `0 0 16px ${glowColor}`,
+          textShadow: `0 0 16px ${glowColor}, 0 0 4px rgba(0, 0, 0, 0.8), 0 1px 3px rgba(0, 0, 0, 0.6)`,
           transform: `translateX(-50%) translateY(${translateY}px)`,
           transformOrigin: "center bottom",
         }}
@@ -253,7 +322,7 @@ const LyricText = ({
         ...commonStyle,
         filter: `blur(${blur}px)`,
         opacity,
-        textShadow: `0 0 14px ${glowColor}`,
+        textShadow: `0 0 14px ${glowColor}, 0 0 4px rgba(0, 0, 0, 0.8), 0 1px 3px rgba(0, 0, 0, 0.6)`,
         transform: `translateX(-50%) translateY(${translateY}px)`,
         transformOrigin: "center bottom",
       }}
@@ -272,6 +341,63 @@ export const LyricVideoComposition = ({
   const frame = useCurrentFrame();
   const { durationInFrames, fps } = useVideoConfig();
   const resolvedTheme = resolveTheme(theme);
+  const [fontsHandle] = useState(() => delayRender("Loading lyric video fonts"));
+
+  useEffect(() => {
+    let mounted = true;
+    const fontFamilies = [
+      resolvedTheme.bannerFontFamily,
+      resolvedTheme.lyricsFontFamily,
+    ];
+
+    Promise.all(
+      fontFamilies.map(async (fontFamily) => {
+        const projectFontUrl = PROJECT_FONT_URLS[fontFamily];
+
+        if (projectFontUrl) {
+          try {
+            const response = await fetch(projectFontUrl);
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}`);
+            }
+
+            const fontData = await response.arrayBuffer();
+            const font = new FontFace(fontFamily, fontData, {
+              style: "normal",
+              weight: "400",
+            });
+            const loadedFont = await font.load();
+            document.fonts.add(loadedFont);
+            return;
+          } catch (err) {
+            throw new Error(
+              `Failed to load ${fontFamily} from ${projectFontUrl}: ${String(err)}`,
+            );
+          }
+        }
+
+        try {
+          await document.fonts.load(`400 16px "${fontFamily}"`);
+        } catch (err) {
+          throw new Error(`Failed to resolve ${fontFamily}: ${String(err)}`);
+        }
+      }),
+    )
+      .then(() => {
+        if (mounted) {
+          continueRender(fontsHandle);
+        }
+      })
+      .catch((err) => {
+        if (mounted) {
+          cancelRender(err);
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [fontsHandle, resolvedTheme.bannerFontFamily, resolvedTheme.lyricsFontFamily]);
 
   const parsedLyrics = useMemo(() => parseLrc(lyricsText, fps), [lyricsText, fps]);
   const lineDurations = useMemo(
@@ -394,12 +520,15 @@ export const LyricVideoComposition = ({
         />
       </AbsoluteFill>
 
-      <DustParticles />
+      {resolvedTheme.mistEnabled && (
+        <MistLayer mistColor={resolvedTheme.mistColor} />
+      )}
+      <DustParticles particleColor={resolvedTheme.particleColor} />
       <Scanlines intensity={scanlineIntensity} />
 
       <AbsoluteFill
         style={{
-          background: `radial-gradient(circle, transparent ${vignetteSize}%, rgba(0, 0, 0, ${resolvedTheme.vignetteAlpha}) 100%)`,
+          background: `radial-gradient(circle, transparent ${vignetteSize}%, rgba(${resolvedTheme.vignetteColor.join(", ")}, ${resolvedTheme.vignetteAlpha}) 100%)`,
           zIndex: 5,
         }}
       />
@@ -415,7 +544,7 @@ export const LyricVideoComposition = ({
       >
         <h1
           style={{
-            fontFamily: bannerFont,
+            fontFamily: resolvedTheme.bannerFontFamily,
             color: "#ffffff",
             fontSize: "5rem",
             textShadow: "0 0 20px rgba(255, 255, 255, 0.5)",

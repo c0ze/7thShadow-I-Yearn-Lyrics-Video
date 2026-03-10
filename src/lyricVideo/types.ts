@@ -12,6 +12,7 @@ export interface LyricVideoTrack {
 export interface LyricVideoTheme {
   accentKeywords?: string[];
   accentLyricColor?: string;
+  bannerFontFamily?: string;
   backgroundBrightness?: number;
   backgroundContrast?: number;
   backgroundHueShift?: [number, number, number];
@@ -21,13 +22,19 @@ export interface LyricVideoTheme {
   baseLyricColor?: string;
   chorusGlowColor?: string;
   chorusKeywords?: string[];
+  lyricsFontFamily?: string;
+  lyricsFontSize?: string;
   neutralGlowColor?: string;
   scanlineBaseIntensity?: number;
   scanlineChorusIntensity?: number;
   vignetteAlpha?: number;
   vignetteBaseSize?: number;
   vignetteChorusSize?: number;
+  vignetteColor?: [number, number, number];
   warmthRange?: [number, number, number];
+  particleColor?: string;
+  mistEnabled?: boolean;
+  mistColor?: string;
 }
 
 export interface LyricVideoProps {

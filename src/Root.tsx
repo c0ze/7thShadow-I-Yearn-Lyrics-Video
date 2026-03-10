@@ -17,8 +17,8 @@ export const RemotionRoot: React.FC = () => {
       <Composition
         id="PaganIntro"
         component={PaganIntro}
-        durationInFrames={150} // 5 seconds at 30fps
-        fps={30}
+        durationInFrames={300} // 5 seconds at 60fps
+        fps={60}
         width={1920}
         height={1080}
       />

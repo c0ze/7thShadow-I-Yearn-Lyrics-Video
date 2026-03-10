@@ -14,7 +14,7 @@ export const seventhShadowProject: LyricVideoProject = {
   component:
     LyricVideoComposition as unknown as ComponentType<Record<string, unknown>>,
   video: {
-    fps: 30,
+    fps: 60,
     width: 1920,
     height: 1080,
   },
